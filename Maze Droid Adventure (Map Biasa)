@@ -1,0 +1,382 @@
+import pygame
+import random
+import math
+
+# Inisialisasi Pygame
+pygame.init()
+
+# Ukuran layar
+screen_width = 1300
+screen_height = 700
+
+# Warna
+BLUE = (0,0,255)
+YELLOW = (255,255,0)
+SIENNA = (139,71,38)
+SKYBLUE = (135,206,255)
+PINK  =  (255, 20, 147)
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
+GREEN = (0,128,0)
+RED = (255, 0, 0)
+LAWNGREEN = (124,252,0)
+
+
+# Ukuran blok dalam maze
+block_size = 37
+
+# Inisialisasi layar
+screen = pygame.display.set_mode((screen_width, screen_height))
+pygame.display.set_caption("SERLY ELDINA 2101020038")
+
+# Membuat maze secara acak
+def create_maze(width, height):
+    maze = []
+    for _ in range(height):
+        row = []
+        for _ in range(width):
+            row.append(1)
+        maze.append(row)
+
+    stack = [(0, 0)]
+    while stack:
+        current = stack[-1]
+        x, y = current
+        maze[y][x] = 0
+        neighbors = []    # Daftar tetangga yang valid
+        if x > 3 and maze[y][x - 2] == 1:
+            neighbors.append((x - 2, y))
+        if x < width - 3 and maze[y][x + 2] == 1:
+            neighbors.append((x + 3, y))
+        if y > 3 and maze[y - 2][x] == 1:
+            neighbors.append((x, y - 2))
+        if y < height - 3 and maze[y + 2][x] == 1:
+            neighbors.append((x, y + 2))
+        if neighbors:
+            next_x, next_y = random.choice(neighbors)
+            maze[(y + next_y) // 3][(x + next_x) // 2] = 0
+            maze[(y + next_y) // 2 + (y + next_y) % 2][(x + next_x) // 2 + (x + next_x) % 2] = 0
+            stack.append((next_x, next_y))
+        else:
+            stack.pop()
+
+    return maze
+
+# Menggambar peta dalam labirin berbentuk balok
+def draw_maze(screen, maze):
+    height = len(maze)
+    width = len(maze[0])
+    for y in range(height):
+        for x in range(width):
+            if maze[y][x] == 1:
+                pygame.draw.rect(screen, BLACK, (x * block_size, y * block_size, block_size, block_size))
+                pygame.draw.rect(screen, SIENNA, (x * block_size + 1, y * block_size + 1, block_size - 4, block_size - 4))
+            elif maze[y][x] == 0:
+                pygame.draw.rect(screen, LAWNGREEN, (x * block_size, y * block_size, block_size, block_size))
+            elif maze[y][x] == 2:
+                pygame.draw.rect(screen, LAWNGREEN, (x * block_size, y * block_size, block_size, block_size))
+                pygame.draw.rect(screen, LAWNGREEN, (x * block_size + block_size, y * block_size, block_size, block_size))
+
+# Membuat ukuran peta
+maze = create_maze(screen_width // block_size - 15, screen_height // block_size - 0)
+
+# Menghitung posisi dan ukuran peta
+maze_width = len(maze[0]) * block_size
+maze_height = len(maze) * block_size
+
+# Menggambar droid
+def draw_droid(screen, droid, color):
+    x = droid[0] * block_size + block_size // 2
+    y = droid[1] * block_size + block_size // 2
+    radius = block_size // 2
+    pygame.draw.circle(screen, color, (x, y), radius)
+
+
+# Daftar droid yang ada di dalam labirin 
+droids_hijau = []
+droids_merah = []
+
+# Kecepatan pergerakan droid (frame per detik)
+droid_speed = 2
+
+# Inisialisasi Clock
+clock = pygame.time.Clock()
+
+
+# Pergerakan droid menggunakan Depth-First Search (DFS) yg dipanggil oleh droid hijau dan merah ketika melakukan pergerakan
+def move_droid(maze, droid):
+    x, y = droid
+
+    neighbors = get_valid_neighbors(x, y, maze)
+    if neighbors:
+        next_x, next_y = random.choice(neighbors)
+        maze[y][x] = 0
+        maze[next_y][next_x] = 2
+        return next_x, next_y
+    return x, y
+
+# Mendapatkan tetangga-tetangga yang valid
+def get_valid_neighbors(x, y, maze):
+    neighbors = []
+    if x > 0 and maze[y][x - 1] == 0:
+        neighbors.append((x - 1, y))
+    if x < len(maze[0]) - 1 and maze[y][x + 1] == 0:
+        neighbors.append((x + 1, y))
+    if y > 0 and maze[y - 1][x] == 0:
+        neighbors.append((x, y - 1))
+    if y < len(maze) - 1 and maze[y + 1][x] == 0:
+        neighbors.append((x, y + 1))
+    return neighbors
+# Mendapatkan jarak antara dua titik
+def distance(x1, y1, x2, y2):
+    return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+
+# Mendapatkan jarak pandang 
+def get_visibility(maze, droid_merah, droid_hijau):
+    x1, y1 = droid_merah
+    x2, y2 = droid_hijau
+    visibility = 0
+    # Menentukan arah dan langkah untuk melihat droid hijau
+    if x1 == x2:
+        step = 1 if y1 < y2 else -1
+        for y in range(y1, y2, step):
+            if maze[y][x1] != 0:
+                break
+            visibility += 1
+    elif y1 == y2:
+        step = 1 if x1 < x2 else -1
+        for x in range(x1, x2, step):
+            if maze[y1][x] != 0:
+                break
+            visibility += 1
+
+    return visibility
+
+# Fungsi untuk menggambar tombol dengan bentuk melengkung
+def draw_button(screen, color, rect, text, text_color):
+    pygame.draw.rect(screen, color, rect, border_radius=20)
+
+    font = pygame.font.SysFont(None, 25)
+    text_surface = font.render(text, True, text_color)
+    text_rect = text_surface.get_rect(center=rect.center)
+    screen.blit(text_surface, text_rect)
+
+# Menghitung posisi dan ukuran tombol Acak Peta, tambah droid, start, stop, jarak pandang, acak droid
+button_width = 250
+button_height = 50
+button_x = screen_width - button_width - 10 # Posisi X di sebelah kanan
+button_y = 20 # Posisi Y di atas peta
+acak_peta_button = pygame.Rect(button_x - button_width - 10, button_y, button_width, button_height)
+tambah_droid_hijau_button = pygame.Rect(button_x - button_width - 10, button_y + button_height + 10, button_width, button_height)
+tambah_droid_merah_button = pygame.Rect(button_x - button_width - 10, button_y + 2 * (button_height + 10), button_width, button_height)
+start_button = pygame.Rect(button_x - button_width - 10, button_y + 3 * (button_height + 10), button_width, button_height)
+stop_button = pygame.Rect(button_x - button_width - 10, button_y + 4 * (button_height + 10), button_width, button_height)
+acak_droid_button = pygame.Rect(button_x - button_width - 10, button_y + 5 * (button_height + 10), button_width, button_height)
+acak_droid_merah_button = pygame.Rect(button_x - button_width - 10, button_y + 6 * (button_height + 10), button_width, button_height)
+kurangi_droid_hijau_button = pygame.Rect(button_x - button_width - 10, button_y + 7 * (button_height + 10), button_width, button_height)
+kurangi_droid_merah_button = pygame.Rect(button_x - button_width - 10, button_y + 8 * (button_height + 10), button_width, button_height)
+jarak_pandang_button = pygame.Rect(button_x - button_width - 10, button_y + 9 * (button_height + 10), button_width, button_height)
+
+#menjalankan program tombol start, stop, jarakpandang, acakposisi
+start_droid_movement = False
+stop_droid_movement = False
+jarak_pandang_merah_aktif = False
+
+# Fungsi untuk mengacak posisi droid
+def acak_droid():
+    for i in range(len(droids_hijau)):
+        x = random.randint(0, len(maze[0]) - 1)
+        y = random.randint(0, len(maze) - 1)
+        if maze[y][x] == 0 and (x, y) not in droids_hijau and (x, y) not in droids_merah:
+            droids_hijau[i] = (x, y)
+# Fungsi untuk mengacak posisi droid merah
+def acak_droid_merah():
+    for i in range(len(droids_merah)):
+        x = random.randint(0, len(maze[0]) - 1)
+        y = random.randint(0, len(maze) - 1)
+        if maze[y][x] == 0 and (x, y) not in droids_merah and (x, y) not in droids_hijau:
+            droids_merah[i] = (x, y)
+# Fungsi untuk mengaktifkan atau menonaktifkan jarak pandang droid merah
+def toggle_jarak_pandang():
+    global jarak_pandang_merah_aktif
+    jarak_pandang_merah_aktif = not jarak_pandang_merah_aktif
+
+# Loop utama
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if acak_droid_button.collidepoint(event.pos):
+                acak_droid()
+            if acak_droid_merah_button.collidepoint(event.pos):
+                 acak_droid_merah()    
+            if acak_peta_button.collidepoint(event.pos):
+                maze = create_maze(screen_width // block_size - 15, screen_height // block_size - 0)
+                droids_hijau = []
+                droids_merah = []
+                start_droid_movement = False
+            elif tambah_droid_hijau_button.collidepoint(event.pos):
+                x = random.randint(0, len(maze[0]) - 1)
+                y = random.randint(0, len(maze) - 1)
+                if maze[y][x] == 0 and (x, y) not in droids_hijau and (x, y) not in droids_merah:
+                    droids_hijau.append((x, y))
+            elif tambah_droid_merah_button.collidepoint(event.pos):
+                x = random.randint(0, len(maze[0]) - 1)
+                y = random.randint(0, len(maze) - 1)
+                if maze[y][x] == 0 and (x, y) not in droids_merah and (x, y) not in droids_hijau:
+                    droids_merah.append((x, y))
+            elif start_button.collidepoint(event.pos):
+                start_droid_movement = True
+            elif stop_button.collidepoint(event.pos):
+                stop_droid_movement = True
+            if kurangi_droid_merah_button.collidepoint(event.pos):
+                    if len(droids_merah) > 0:
+                        droids_merah.pop()
+            if kurangi_droid_hijau_button.collidepoint(event.pos):
+                    if droids_hijau:
+                        droids_hijau.pop()
+            elif jarak_pandang_button.collidepoint(event.pos):
+                toggle_jarak_pandang()          
+
+
+   # Menggambar latar belakang 
+    screen.fill(YELLOW)
+    draw_maze(screen, maze)
+
+    # Menggambar droid hijau
+    for droid_hijau in droids_hijau:
+        draw_droid(screen, droid_hijau, GREEN)
+
+    # Menggambar droid merah
+    for droid_merah in droids_merah:
+            draw_droid(screen, droid_merah, RED)
+            
+    #menggambar peta
+    pygame.draw.rect(screen, BLACK, (0, 0, maze_width, maze_height), 2)
+
+    # Menggambar tombol acak peta, tambah droid hijau, tambah droid merah, mulai, stop, acak droid, jarak pandang
+    draw_button(screen, BLUE, acak_peta_button, "Acak Peta", WHITE)
+    draw_button(screen, GREEN, tambah_droid_hijau_button, "Tambah Droid Hijau", WHITE)
+    draw_button(screen, RED, tambah_droid_merah_button, "Tambah Droid Merah", WHITE)
+    draw_button(screen, BLUE, start_button, "Start", WHITE)
+    draw_button(screen, BLUE, stop_button, "Stop", WHITE)
+    draw_button(screen, GREEN, acak_droid_button, "Acak Droid Hijau", WHITE)
+    draw_button(screen, RED, acak_droid_merah_button, "Acak Droid Merah", WHITE)
+    draw_button(screen, RED, kurangi_droid_merah_button, "Kurangi Droid Merah", WHITE)
+    draw_button(screen, GREEN, kurangi_droid_hijau_button, "Kurangi Droid Hijau", WHITE)
+    draw_button(screen, SIENNA, jarak_pandang_button, "JarakPandangMerah", WHITE)
+
+#droid hijau
+    # melakukan pengecekan kondisi untuk mengeksekusi program start droid movement dan stop droid movement
+    if start_droid_movement and not stop_droid_movement:
+        for i, droid_hijau in enumerate(droids_hijau):
+            x, y = droid_hijau
+            next_x, next_y = move_droid(maze, droid_hijau)
+            if (next_x, next_y) in droids_merah:
+                droids_merah.remove((next_x, next_y))
+            droids_hijau[i] = (next_x, next_y)
+            # Menghindari droid merah menggunakan avoids droid untuk mengembalikan langkah yang aman menerima posisi droid merah
+            def avoid_droids(droid, droids_merah, maze):
+                x, y = droid
+                valid_moves = get_valid_neighbors(x, y, maze)
+                safe_moves = []
+                for move in valid_moves:
+                    if move not in droids_merah:
+                        safe_moves.append(move)
+                if safe_moves:
+                    return random.choice(safe_moves)
+                return droid
+            
+            # Menggerakkan droid hijau menghindari droid merah Menghindari droid merah dengan mempertimbangkan jarak pandang
+            def move_droid_hijau(maze, droid, droids_merah): 
+                safe_moves = []
+                min_visibility = float('inf')
+                for move in get_valid_neighbors(x, y, maze):
+                    next_x, next_y = move
+                    visibility = get_visibility(maze, (next_x, next_y), droids_merah)
+                    if visibility < min_visibility:
+                        safe_moves = [(next_x, next_y)]
+                        min_visibility = visibility
+                    elif visibility == min_visibility:
+                        safe_moves.append((next_x, next_y))
+                if safe_moves:
+                    next_x, next_y = random.choice(safe_moves)
+                    maze[y][x] = 0
+                    maze[next_y][next_x] = 2
+                    return next_x, next_y
+                return x, y
+
+            #Pergerakan droid hijau (DFS) memanggil fungsi sebelum loop utama yang sudah di definisikan
+            for i, droid in enumerate(droids_hijau):
+                    droids_hijau[i] = move_droid(maze, droid)  
+            
+#droid merah
+                # Fungsi untuk memeriksa apakah droid merah dapat melihat droid hijau menggunakan def can see (tidak terhalang tembok=melihat)
+            def can_see(droid_merah, droid_hijau, maze):
+                x1, y1 = droid_merah
+                x2, y2 = droid_hijau
+
+                if x1 == x2:
+                    for y in range(min(y1, y2) + 1, max(y1, y2)):
+                        if maze[y][x1] != 0:
+                            return False
+                    return True
+
+                if y1 == y2:
+                    for x in range(min(x1, x2) + 1, max(x1, x2)):
+                        if maze[y1][x] != 0:
+                            return False
+                    return True
+
+                return False
+
+                # Menggerakkan droid merah untuk menemukan droid hijau didalam peta dengan memanggil fungsi can see untuk melihat pandangan jika terlihat = menuju jika tidak = acak
+            def move_droid_merah(maze, droid_merah, droids_hijau):
+                x, y = droid_merah
+                for droid_hijau in droids_hijau:
+                    if can_see((x, y), droid_hijau, maze):
+                        return droid_hijau
+                    
+                neighbors = get_valid_neighbors(x, y, maze)
+                if neighbors:
+                    next_x, next_y = random.choice(neighbors)
+                    maze[y][x] = 0
+                    maze[next_y][next_x] = 1
+                    return next_x, next_y
+                return x, y
+
+                # Menggerakkan droid merah degan melakukan pengecekan start not stop
+            if start_droid_movement and not stop_droid_movement:
+                for i, droid_merah in enumerate(droids_merah):
+                    x, y = droid_merah
+
+                    # loop Memeriksa apakah ada droid hijau yang terlihat jika ya dia akan pindah ke droid hijau
+                    for droid_hijau in droids_hijau:
+                        if can_see((x, y), droid_hijau, maze):
+                            droids_merah[i] = droid_hijau
+                            droids_hijau.remove(droid_hijau)
+                            break
+                    else: # Jika tidak ada droid hijau yang terlihat, melanjutkan pergerakan acak
+                        next_x, next_y = move_droid_merah(maze, droid_merah, droids_hijau)
+                        droids_merah[i] = (next_x, next_y)
+
+
+                # Pergerakan droid merah  jarak pandang merah aktif 
+                for i, droid in enumerate(droids_merah):
+                    if jarak_pandang_merah_aktif:
+                        droid_hijau_terdekat = min(droids_hijau, key=lambda d: distance(*d, *droid))
+                        droids_merah[i] = move_droid_hijau(maze, droid, droid_hijau_terdekat)
+                    else:
+                        droids_merah[i] = move_droid(maze, droid)
+
+
+    # Update tampilan
+    pygame.display.flip()
+
+    # Mengatur FPS
+    clock.tick(4)
+
+# Menutup program
+pygame.quit()
